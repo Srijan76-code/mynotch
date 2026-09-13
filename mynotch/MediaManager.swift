@@ -159,8 +159,7 @@ final class MediaManager: ObservableObject {
         if runningBundleIDs.contains("com.apple.Music") {
             sources.append(.appleMusic)
         }
-        if let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-           ["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox"].contains(frontmostBundleID) {
+        if isFrontmostBrowser {
             sources.append(.webMedia)
         }
         guard let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else {
@@ -172,12 +171,28 @@ final class MediaManager: ObservableObject {
         if frontmostBundleID == "com.apple.Music", sources.contains(.appleMusic) {
             return [.appleMusic] + sources.filter { $0 != .appleMusic }
         }
-        if frontmostBundleID == "com.apple.Safari" ||
-            frontmostBundleID == "com.google.Chrome" ||
-            frontmostBundleID == "org.mozilla.firefox" {
+        if isFrontmostBrowser {
             return [.webMedia] + sources.filter { $0 != .webMedia }
         }
         return sources
+    }
+
+    private var isFrontmostBrowser: Bool {
+        guard let application = NSWorkspace.shared.frontmostApplication else {
+            return false
+        }
+        let bundleID = application.bundleIdentifier?.lowercased() ?? ""
+        let name = application.localizedName?.lowercased() ?? ""
+        let knownBrowserIDs = [
+            "com.apple.safari", "com.google.chrome", "org.mozilla.firefox",
+            "com.brave.browser", "com.microsoft.edgemac", "com.operasoftware.operagx",
+            "com.vivaldi.vivaldi", "company.thebrowser.browser", "company.thebrowser.dia",
+            "com.kagi.orion"
+        ]
+        return knownBrowserIDs.contains(bundleID)
+            || name.contains("browser")
+            || name == "dia"
+            || name == "arc"
     }
 
     private func fetchPlayerSnapshot(source: MediaSource) -> PlayerSnapshot? {
@@ -239,34 +254,18 @@ final class MediaManager: ObservableObject {
     }
 
     private func fetchBrowserSnapshot() -> PlayerSnapshot? {
-        guard let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else {
-            return nil
-        }
-        let script: String
-        switch bundleID {
-        case "com.apple.Safari":
-            script = #"tell application "Safari" to return name of current tab of front window"#
-        case "com.google.Chrome":
-            script = #"tell application "Google Chrome" to return title of active tab of front window"#
-        case "org.mozilla.firefox":
-            script = #"tell application "System Events" to return name of first application process whose frontmost is true"#
-        default:
-            return nil
-        }
-        var error: NSDictionary?
-        guard let title = NSAppleScript(source: script)?
-            .executeAndReturnError(&error).stringValue,
-              !title.isEmpty else {
+        guard let application = NSWorkspace.shared.frontmostApplication,
+              let name = application.localizedName else {
             return nil
         }
         return PlayerSnapshot(
             source: .webMedia,
-            title: title,
+            title: name,
             artist: "Browser media",
             album: "",
             duration: 1,
             currentTime: 0,
-            isPlaying: true
+            isPlaying: false
         )
     }
 
@@ -282,12 +281,21 @@ final class MediaManager: ObservableObject {
             source: snapshot.source,
             artworkImage: track.source == snapshot.source ? track.artworkImage : nil
         )
-        nowPlayingAppName = snapshot.source == .spotify ? "Spotify" : "Apple Music"
+        switch snapshot.source {
+        case .spotify:
+            nowPlayingAppName = "Spotify"
+        case .appleMusic:
+            nowPlayingAppName = "Apple Music"
+        case .webMedia:
+            nowPlayingAppName = snapshot.title
+        case .auto:
+            nowPlayingAppName = ""
+        }
         selectedSource = snapshot.source
         reportedAutomationDenials.remove(snapshot.source)
-        mediaStatus = snapshot.isPlaying
-            ? "Playing in \(nowPlayingAppName)"
-            : "Paused in \(nowPlayingAppName)"
+        mediaStatus = snapshot.source == .webMedia
+            ? "Browser detected; media metadata and controls are unavailable"
+            : (snapshot.isPlaying ? "Playing in \(nowPlayingAppName)" : "Paused in \(nowPlayingAppName)")
     }
     
     // MARK: - Playback Controls
@@ -370,11 +378,10 @@ final class MediaManager: ObservableObject {
     }
 
     func openAutomationSettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AppleEvents") else {
-            return
-        }
-        if !NSWorkspace.shared.open(url) {
+        guard let settingsURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences"),
+              NSWorkspace.shared.open(settingsURL) else {
             mediaStatus = "Open System Settings > Privacy & Security > Automation"
+            return
         }
     }
 

@@ -85,7 +85,7 @@ struct GeneralSettingsView: View {
                     }
                 }
                 
-                Text("Spotify and Apple Music require Automation permission. Browser media metadata is not available through a public macOS API.")
+                Text("Spotify and Apple Music support metadata, timeline, and controls. Browser apps are detected, but macOS does not expose universal tab media metadata or controls.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -167,7 +167,7 @@ struct PermissionsSettingsView: View {
                     Text("Calendar")
                     Spacer()
                     Button("Open Privacy Settings") {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") {
                             NSWorkspace.shared.open(url)
                         }
                     }
