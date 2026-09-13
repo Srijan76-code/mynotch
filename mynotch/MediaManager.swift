@@ -117,7 +117,7 @@ final class MediaManager: ObservableObject {
 
     private var runningPlayerSources: [MediaSource] {
         let runningBundleIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        let sources = [
+        let sources: [MediaSource?] = [
             runningBundleIDs.contains("com.spotify.client") ? .spotify : nil,
             runningBundleIDs.contains("com.apple.Music") ? .appleMusic : nil
         ].compactMap { $0 }
