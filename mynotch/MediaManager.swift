@@ -207,6 +207,7 @@ final class MediaManager: ObservableObject {
         )
         nowPlayingAppName = snapshot.source == .spotify ? "Spotify" : "Apple Music"
         selectedSource = snapshot.source
+        reportedAutomationDenials.remove(snapshot.source)
         mediaStatus = snapshot.isPlaying
             ? "Playing in \(nowPlayingAppName)"
             : "Paused in \(nowPlayingAppName)"
@@ -292,10 +293,12 @@ final class MediaManager: ObservableObject {
     }
 
     func openAutomationSettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") else {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AppleEvents") else {
             return
         }
-        NSWorkspace.shared.open(url)
+        if !NSWorkspace.shared.open(url) {
+            mediaStatus = "Open System Settings > Privacy & Security > Automation"
+        }
     }
 
     private static func isAutomationDenied(_ error: NSDictionary) -> Bool {

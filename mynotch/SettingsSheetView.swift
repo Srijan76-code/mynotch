@@ -85,7 +85,7 @@ struct GeneralSettingsView: View {
                     }
                 }
                 
-                Text("Media is detected automatically from any app (Spotify, Apple Music, YouTube, etc.)")
+                Text("Spotify and Apple Music require Automation permission. Browser media metadata is not available through a public macOS API.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
