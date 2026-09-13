@@ -159,6 +159,10 @@ final class MediaManager: ObservableObject {
         if runningBundleIDs.contains("com.apple.Music") {
             sources.append(.appleMusic)
         }
+        if let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           ["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox"].contains(frontmostBundleID) {
+            sources.append(.webMedia)
+        }
         guard let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else {
             return sources
         }
@@ -167,6 +171,11 @@ final class MediaManager: ObservableObject {
         }
         if frontmostBundleID == "com.apple.Music", sources.contains(.appleMusic) {
             return [.appleMusic] + sources.filter { $0 != .appleMusic }
+        }
+        if frontmostBundleID == "com.apple.Safari" ||
+            frontmostBundleID == "com.google.Chrome" ||
+            frontmostBundleID == "org.mozilla.firefox" {
+            return [.webMedia] + sources.filter { $0 != .webMedia }
         }
         return sources
     }
@@ -178,6 +187,8 @@ final class MediaManager: ObservableObject {
             application = "Spotify"
         case .appleMusic:
             application = "Music"
+        case .webMedia:
+            return fetchBrowserSnapshot()
         default:
             return nil
         }
@@ -224,6 +235,38 @@ final class MediaManager: ObservableObject {
             duration: source == .spotify ? duration / 1000 : duration,
             currentTime: currentTime,
             isPlaying: isPlaying
+        )
+    }
+
+    private func fetchBrowserSnapshot() -> PlayerSnapshot? {
+        guard let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else {
+            return nil
+        }
+        let script: String
+        switch bundleID {
+        case "com.apple.Safari":
+            script = #"tell application "Safari" to return name of current tab of front window"#
+        case "com.google.Chrome":
+            script = #"tell application "Google Chrome" to return title of active tab of front window"#
+        case "org.mozilla.firefox":
+            script = #"tell application "System Events" to return name of first application process whose frontmost is true"#
+        default:
+            return nil
+        }
+        var error: NSDictionary?
+        guard let title = NSAppleScript(source: script)?
+            .executeAndReturnError(&error).stringValue,
+              !title.isEmpty else {
+            return nil
+        }
+        return PlayerSnapshot(
+            source: .webMedia,
+            title: title,
+            artist: "Browser media",
+            album: "",
+            duration: 1,
+            currentTime: 0,
+            isPlaying: true
         )
     }
 

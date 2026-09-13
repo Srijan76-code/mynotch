@@ -27,6 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var notch: DynamicNotch<NotchContentView>?
     
     private var mouseMonitor: Any?
+    private var hoverTimer: Timer?
     private var isExpanded = false
     private var collapseWorkItem: DispatchWorkItem?
     
@@ -55,6 +56,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Set up mouse tracking to expand on hover, collapse on leave
         setupMouseTracking()
+        hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            self?.handleMouseMoved(nil)
+        }
     }
     
     private func setupMouseTracking() {
@@ -70,7 +74,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    private func handleMouseMoved(_ event: NSEvent) {
+    private func handleMouseMoved(_ event: NSEvent?) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         
         let mouseLocation = NSEvent.mouseLocation
@@ -138,5 +142,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let monitor = mouseMonitor {
             NSEvent.removeMonitor(monitor)
         }
+        hoverTimer?.invalidate()
     }
 }
