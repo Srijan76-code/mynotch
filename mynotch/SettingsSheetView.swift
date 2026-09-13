@@ -78,6 +78,12 @@ struct GeneralSettingsView: View {
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.trailing)
                 }
+
+                if mediaManager.mediaStatus.contains("System Settings") {
+                    Button("Open Automation Settings") {
+                        mediaManager.openAutomationSettings()
+                    }
+                }
                 
                 Text("Media is detected automatically from any app (Spotify, Apple Music, YouTube, etc.)")
                     .font(.caption)

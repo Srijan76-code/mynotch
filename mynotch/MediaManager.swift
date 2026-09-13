@@ -76,6 +76,7 @@ final class MediaManager: ObservableObject {
     @Published private(set) var mediaStatus = "Waiting for a supported player"
     
     private var timer: Timer?
+    private var reportedAutomationDenials: Set<MediaSource> = []
     
     private init() {
         fetchNowPlaying()
@@ -158,8 +159,15 @@ final class MediaManager: ObservableObject {
         guard let result = NSAppleScript(source: script)?
             .executeAndReturnError(&error).stringValue else {
             if let error {
-                mediaStatus = "\(source.rawValue) automation failed"
-                print("[MediaManager] \(source.rawValue) read failed: \(error)")
+                if Self.isAutomationDenied(error) {
+                    mediaStatus = "Allow mynotch to control \(source.rawValue) in System Settings"
+                    if reportedAutomationDenials.insert(source).inserted {
+                        print("[MediaManager] \(source.rawValue) automation is not authorized. Enable it in System Settings > Privacy & Security > Automation.")
+                    }
+                } else {
+                    mediaStatus = "\(source.rawValue) automation failed"
+                    print("[MediaManager] \(source.rawValue) read failed: \(error)")
+                }
             }
             return nil
         }
@@ -275,8 +283,24 @@ final class MediaManager: ObservableObject {
         var error: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&error)
         if let error {
-            print("[MediaManager] Player command failed: \(error)")
+            if Self.isAutomationDenied(error) {
+                mediaStatus = "Allow player automation in System Settings"
+            } else {
+                print("[MediaManager] Player command failed: \(error)")
+            }
         }
+    }
+
+    func openAutomationSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private static func isAutomationDenied(_ error: NSDictionary) -> Bool {
+        (error[NSAppleScript.errorNumber] as? NSNumber)?.intValue == -1743
+            || (error[NSAppleScript.errorNumber] as? Int) == -1743
     }
 
     private func refreshAfterCommand() {
