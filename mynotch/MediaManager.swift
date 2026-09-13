@@ -77,9 +77,12 @@ final class MediaManager: ObservableObject {
     
     private var timer: Timer?
     private var reportedAutomationDenials: Set<MediaSource> = []
+    private var requestedAutomationSources: Set<MediaSource> = []
     
     private init() {
-        fetchNowPlaying()
+        DispatchQueue.main.async { [weak self] in
+            self?.requestAutomationAccessIfNeeded()
+        }
         startPolling()
     }
     
@@ -96,6 +99,7 @@ final class MediaManager: ObservableObject {
     
     private func fetchNowPlaying() {
         let sources = runningPlayerSources
+        requestAutomationAccessIfNeeded()
         let snapshots = sources.compactMap(fetchPlayerSnapshot)
         guard let snapshot = snapshots.first(where: \.isPlaying)
                 ?? snapshots.first(where: { $0.source == track.source })
@@ -111,9 +115,39 @@ final class MediaManager: ObservableObject {
                 selectedSource = .auto
                 mediaStatus = "Player automation permission is required"
             }
+
             return
         }
         apply(snapshot)
+    }
+
+    private func requestAutomationAccessIfNeeded() {
+        guard let source = runningPlayerSources.first,
+              requestedAutomationSources.insert(source).inserted else {
+            return
+        }
+
+        let application = source == .spotify ? "Spotify" : "Music"
+        let script = """
+        tell application "\(application)" to return name
+        """
+        var error: NSDictionary?
+        _ = NSAppleScript(source: script)?.executeAndReturnError(&error)
+        if let error, Self.isAutomationDenied(error) {
+            mediaStatus = "Allow mynotch to control \(source.rawValue) in System Settings"
+            showAutomationAlert(for: source)
+        }
+    }
+
+    private func showAutomationAlert(for source: MediaSource) {
+        let alert = NSAlert()
+        alert.messageText = "Media control permission required"
+        alert.informativeText = "Allow mynotch to control \(source.rawValue) in System Settings > Privacy & Security > Automation, then relaunch mynotch."
+        alert.addButton(withTitle: "Open Automation Settings")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            openAutomationSettings()
+        }
     }
 
     private var runningPlayerSources: [MediaSource] {

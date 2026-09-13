@@ -354,6 +354,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "mynotch uses your camera for the notch mirror preview.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "mynotch uses your calendar to display upcoming events.";
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "mynotch needs to communicate with Spotify and Music to control media playback.";
+				INFOPLIST_KEY_CFBundleDisplayName = "mynotch";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -389,6 +390,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "mynotch uses your camera for the notch mirror preview.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "mynotch uses your calendar to display upcoming events.";
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "mynotch needs to communicate with Spotify and Music to control media playback.";
+				INFOPLIST_KEY_CFBundleDisplayName = "mynotch";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
