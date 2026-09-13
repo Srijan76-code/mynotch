@@ -2,54 +2,13 @@
 //  MediaManager.swift
 //  mynotch
 //
-//  Uses the private MediaRemote framework to get system-wide now-playing info.
-//  Works with Spotify, Apple Music, YouTube (Safari/Chrome), and any other media app.
+//  Reads supported desktop players through their AppleScript interfaces.
 //
 
 import Foundation
 import AppKit
 import Combine
 import SwiftUI
-
-// MARK: - MediaRemote Private Framework
-
-// These are the private MediaRemote functions we use via dlsym.
-// They work for all media sources system-wide — no AppleScript needed.
-private let mediaRemoteBundle = CFBundleCreate(kCFAllocatorDefault,
-    NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework"))
-
-private typealias MRMediaRemoteGetNowPlayingInfoFunction = @convention(c) (DispatchQueue, @escaping ([String: Any]) -> Void) -> Void
-private typealias MRMediaRemoteGetNowPlayingApplicationIsPlayingFunction = @convention(c) (DispatchQueue, @escaping (Bool) -> Void) -> Void
-private typealias MRMediaRemoteSendCommandFunction = @convention(c) (UInt32, UnsafeMutableRawPointer?) -> Bool
-private typealias MRMediaRemoteRegisterForNowPlayingNotificationsFunction = @convention(c) (DispatchQueue) -> Void
-private typealias MRMediaRemoteGetNowPlayingClientFunction = @convention(c) (DispatchQueue, @escaping (AnyObject?) -> Void) -> Void
-
-private func MRFunction<T>(_ name: String) -> T? {
-    guard let bundle = mediaRemoteBundle else { return nil }
-    guard let ptr = CFBundleGetFunctionPointerForName(bundle, name as CFString) else { return nil }
-    return unsafeBitCast(ptr, to: T.self)
-}
-
-// MediaRemote command constants
-private let kMRPlay: UInt32 = 0
-private let kMRPause: UInt32 = 1
-private let kMRTogglePlayPause: UInt32 = 2
-private let kMRStop: UInt32 = 3
-private let kMRNextTrack: UInt32 = 4
-private let kMRPreviousTrack: UInt32 = 5
-
-// MediaRemote info dictionary keys
-private let kMRMediaRemoteNowPlayingInfoTitle = "kMRMediaRemoteNowPlayingInfoTitle"
-private let kMRMediaRemoteNowPlayingInfoArtist = "kMRMediaRemoteNowPlayingInfoArtist"
-private let kMRMediaRemoteNowPlayingInfoAlbum = "kMRMediaRemoteNowPlayingInfoAlbum"
-private let kMRMediaRemoteNowPlayingInfoDuration = "kMRMediaRemoteNowPlayingInfoDuration"
-private let kMRMediaRemoteNowPlayingInfoElapsedTime = "kMRMediaRemoteNowPlayingInfoElapsedTime"
-private let kMRMediaRemoteNowPlayingInfoArtworkData = "kMRMediaRemoteNowPlayingInfoArtworkData"
-private let kMRMediaRemoteNowPlayingInfoTimestamp = "kMRMediaRemoteNowPlayingInfoTimestamp"
-
-// Notification names
-private let kMRMediaRemoteNowPlayingInfoDidChangeNotification = NSNotification.Name("kMRMediaRemoteNowPlayingInfoDidChangeNotification")
-private let kMRMediaRemoteNowPlayingApplicationIsPlayingDidChangeNotification = NSNotification.Name("kMRMediaRemoteNowPlayingApplicationIsPlayingDidChangeNotification")
 
 // MARK: - MediaSource
 
@@ -95,6 +54,16 @@ struct TrackInfo: Equatable {
     )
 }
 
+private struct PlayerSnapshot {
+    let source: MediaSource
+    let title: String
+    let artist: String
+    let album: String
+    let duration: TimeInterval
+    let currentTime: TimeInterval
+    let isPlaying: Bool
+}
+
 // MARK: - MediaManager
 
 final class MediaManager: ObservableObject {
@@ -106,41 +75,10 @@ final class MediaManager: ObservableObject {
     @Published var nowPlayingAppName: String = ""
     
     private var timer: Timer?
-    private var observers: [NSObjectProtocol] = []
     
     private init() {
-        registerForNotifications()
         fetchNowPlaying()
         startPolling()
-    }
-    
-    // MARK: - Registration
-    
-    private func registerForNotifications() {
-        // Register for MediaRemote notifications
-        if let registerFn: MRMediaRemoteRegisterForNowPlayingNotificationsFunction = MRFunction("MRMediaRemoteRegisterForNowPlayingNotifications") {
-            registerFn(DispatchQueue.main)
-        }
-        
-        // Observe now playing info changes
-        let infoObserver = NotificationCenter.default.addObserver(
-            forName: kMRMediaRemoteNowPlayingInfoDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.fetchNowPlaying()
-        }
-        observers.append(infoObserver)
-        
-        // Observe play state changes
-        let playObserver = NotificationCenter.default.addObserver(
-            forName: kMRMediaRemoteNowPlayingApplicationIsPlayingDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.fetchPlayingState()
-        }
-        observers.append(playObserver)
     }
     
     // MARK: - Polling (backup for elapsed time updates)
@@ -148,129 +86,181 @@ final class MediaManager: ObservableObject {
     func startPolling() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if self.track.isPlaying && self.track.currentTime < self.track.duration {
-                self.track.currentTime += 1.0
-            }
+            self?.fetchNowPlaying()
         }
     }
     
-    // MARK: - Fetch Now Playing via MediaRemote
+    // MARK: - Fetch Now Playing
     
     private func fetchNowPlaying() {
-        guard let getNowPlayingInfo: MRMediaRemoteGetNowPlayingInfoFunction = MRFunction("MRMediaRemoteGetNowPlayingInfo") else {
-            print("[MediaManager] Could not load MRMediaRemoteGetNowPlayingInfo")
+        let snapshots = runningPlayerSources.compactMap(fetchPlayerSnapshot)
+        guard let snapshot = snapshots.first(where: \.isPlaying)
+                ?? snapshots.first(where: { $0.source == track.source })
+                ?? snapshots.first else {
+            track = .empty
+            nowPlayingAppName = ""
+            selectedSource = .auto
             return
         }
-        
-        getNowPlayingInfo(DispatchQueue.main) { [weak self] info in
-            guard let self = self else { return }
-            
-            let title = info[kMRMediaRemoteNowPlayingInfoTitle] as? String ?? ""
-            let artist = info[kMRMediaRemoteNowPlayingInfoArtist] as? String ?? ""
-            let album = info[kMRMediaRemoteNowPlayingInfoAlbum] as? String ?? ""
-            let duration = info[kMRMediaRemoteNowPlayingInfoDuration] as? Double ?? 0
-            let elapsed = info[kMRMediaRemoteNowPlayingInfoElapsedTime] as? Double ?? 0
-            
-            var artwork: NSImage? = nil
-            if let artworkData = info[kMRMediaRemoteNowPlayingInfoArtworkData] as? Data {
-                artwork = NSImage(data: artworkData)
-            }
-            
-            // Only update if we have real data
-            if !title.isEmpty {
-                self.track.title = title
-                self.track.artist = artist.isEmpty ? "Unknown Artist" : artist
-                self.track.album = album
-                self.track.duration = max(duration, 1)
-                self.track.currentTime = elapsed
-                self.track.artworkImage = artwork
-                self.track.source = self.detectSource()
-            }
+        apply(snapshot)
+    }
+
+    private var runningPlayerSources: [MediaSource] {
+        let runningBundleIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+        let sources = [
+            runningBundleIDs.contains("com.spotify.client") ? .spotify : nil,
+            runningBundleIDs.contains("com.apple.Music") ? .appleMusic : nil
+        ].compactMap { $0 }
+        guard let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else {
+            return sources
         }
-        
-        fetchPlayingState()
-        fetchNowPlayingApp()
+        if frontmostBundleID == "com.spotify.client", sources.contains(.spotify) {
+            return [.spotify] + sources.filter { $0 != .spotify }
+        }
+        if frontmostBundleID == "com.apple.Music", sources.contains(.appleMusic) {
+            return [.appleMusic] + sources.filter { $0 != .appleMusic }
+        }
+        return sources
+    }
+
+    private func fetchPlayerSnapshot(source: MediaSource) -> PlayerSnapshot? {
+        let application: String
+        switch source {
+        case .spotify:
+            application = "Spotify"
+        case .appleMusic:
+            application = "Music"
+        default:
+            return nil
+        }
+
+        let script = """
+        tell application "\(application)"
+            set stateText to (player state) as text
+            if stateText is "stopped" then return "|||||stopped"
+            return (name of current track) & tab & (artist of current track) & tab & (album of current track) & tab & (duration of current track) & tab & (player position) & tab & stateText
+        end tell
+        """
+        var error: NSDictionary?
+        guard let result = NSAppleScript(source: script)?
+            .executeAndReturnError(&error).stringValue else { return nil }
+
+        let fields = result.components(separatedBy: "\t")
+        guard fields.count >= 6,
+              let duration = Double(fields[3]),
+              let currentTime = Double(fields[4]),
+              !fields[0].isEmpty else { return nil }
+
+        let isPlaying = fields[5].lowercased() == "playing"
+        return PlayerSnapshot(
+            source: source,
+            title: fields[0],
+            artist: fields[1],
+            album: fields[2],
+            duration: source == .spotify ? duration / 1000 : duration,
+            currentTime: currentTime,
+            isPlaying: isPlaying
+        )
+    }
+
+    private func apply(_ snapshot: PlayerSnapshot) {
+        let duration = max(snapshot.duration, 1)
+        track = TrackInfo(
+            title: snapshot.title,
+            artist: snapshot.artist.isEmpty ? "Unknown Artist" : snapshot.artist,
+            album: snapshot.album,
+            duration: duration,
+            currentTime: min(max(snapshot.currentTime, 0), duration),
+            isPlaying: snapshot.isPlaying,
+            source: snapshot.source,
+            artworkImage: track.source == snapshot.source ? track.artworkImage : nil
+        )
+        nowPlayingAppName = snapshot.source == .spotify ? "Spotify" : "Apple Music"
+        selectedSource = snapshot.source
     }
     
-    private func fetchPlayingState() {
-        guard let getIsPlaying: MRMediaRemoteGetNowPlayingApplicationIsPlayingFunction = MRFunction("MRMediaRemoteGetNowPlayingApplicationIsPlaying") else {
-            return
-        }
-        
-        getIsPlaying(DispatchQueue.main) { [weak self] isPlaying in
-            self?.track.isPlaying = isPlaying
-        }
-    }
-    
-    private func fetchNowPlayingApp() {
-        guard let getClient: MRMediaRemoteGetNowPlayingClientFunction = MRFunction("MRMediaRemoteGetNowPlayingClient") else {
-            return
-        }
-        
-        getClient(DispatchQueue.main) { [weak self] client in
-            if let client = client {
-                // Try to get the app name from the client object
-                let appName = (client as AnyObject).value(forKey: "displayName") as? String ?? ""
-                self?.nowPlayingAppName = appName
-            }
-        }
-    }
-    
-    private func detectSource() -> MediaSource {
-        let appName = nowPlayingAppName.lowercased()
-        if appName.contains("spotify") { return .spotify }
-        if appName.contains("music") { return .appleMusic }
-        if appName.contains("safari") || appName.contains("chrome") || appName.contains("firefox") { return .webMedia }
-        return .auto
-    }
-    
-    // MARK: - Playback Controls (via MediaRemote commands)
-    
+    // MARK: - Playback Controls
+
     func selectSource(_ source: MediaSource) {
         selectedSource = source
         HapticFeedback.lightTap()
         fetchNowPlaying()
     }
-    
+
     func togglePlayPause() {
         HapticFeedback.lightTap()
-        sendCommand(kMRTogglePlayPause)
-        // Optimistically toggle
-        track.isPlaying.toggle()
-    }
-    
-    func nextTrack() {
-        HapticFeedback.lightTap()
-        sendCommand(kMRNextTrack)
-        // Fetch updated info after a short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.fetchNowPlaying()
-        }
-    }
-    
-    func previousTrack() {
-        HapticFeedback.lightTap()
-        sendCommand(kMRPreviousTrack)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.fetchNowPlaying()
-        }
-    }
-    
-    func seek(to time: TimeInterval) {
-        track.currentTime = min(max(0, time), track.duration)
-    }
-    
-    private func sendCommand(_ command: UInt32) {
-        guard let sendCmd: MRMediaRemoteSendCommandFunction = MRFunction("MRMediaRemoteSendCommand") else {
-            print("[MediaManager] Could not load MRMediaRemoteSendCommand")
+        if let source = activeScriptableSource {
+            runPlayerCommand("""
+            tell application "\(source == .spotify ? "Spotify" : "Music")" to playpause
+            """)
+            refreshAfterCommand()
             return
         }
-        _ = sendCmd(command, nil)
+        refreshAfterCommand()
     }
-    
+
+    func nextTrack() {
+        HapticFeedback.lightTap()
+        if let source = activeScriptableSource {
+            runPlayerCommand("""
+            tell application "\(source == .spotify ? "Spotify" : "Music")" to next track
+            """)
+            refreshAfterCommand()
+            return
+        }
+        refreshAfterCommand()
+    }
+
+    func previousTrack() {
+        HapticFeedback.lightTap()
+        if let source = activeScriptableSource {
+            runPlayerCommand("""
+            tell application "\(source == .spotify ? "Spotify" : "Music")" to previous track
+            """)
+            refreshAfterCommand()
+            return
+        }
+        refreshAfterCommand()
+    }
+
+    func seek(to time: TimeInterval) {
+        let targetTime = min(max(0, time), track.duration)
+        if let source = activeScriptableSource {
+            let application = source == .spotify ? "Spotify" : "Music"
+            runPlayerCommand("""
+            tell application "\(application)" to set player position to \(targetTime)
+            """)
+            track.currentTime = targetTime
+            refreshAfterCommand()
+            return
+        }
+    track.currentTime = targetTime
+    }
+
+    private var activeScriptableSource: MediaSource? {
+    switch track.source {
+    case .spotify, .appleMusic:
+        return runningPlayerSources.contains(track.source) ? track.source : nil
+    default:
+        return runningPlayerSources.first
+    }
+    }
+
+    private func runPlayerCommand(_ source: String) {
+        var error: NSDictionary?
+        NSAppleScript(source: source)?.executeAndReturnError(&error)
+        if let error {
+            print("[MediaManager] Player command failed: \(error)")
+        }
+    }
+
+    private func refreshAfterCommand() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.fetchNowPlaying()
+        }
+    }
+
     deinit {
         timer?.invalidate()
-        observers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 }

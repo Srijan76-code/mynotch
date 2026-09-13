@@ -141,7 +141,7 @@ struct PermissionsSettingsView: View {
                         .foregroundColor(.blue)
                     Text("Media Control")
                     Spacer()
-                    Text("Uses MediaRemote (no permission needed)")
+                    Text("Uses player automation permissions")
                         .foregroundColor(.secondary)
                         .font(.caption)
                 }
