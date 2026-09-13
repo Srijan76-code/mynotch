@@ -11,6 +11,22 @@ struct NotchContentView: View {
     @ObservedObject var trayManager = FileTrayManager.shared
     
     var body: some View {
+        Group {
+            switch stateManager.presentation {
+            case .natural:
+                CollapsedNotchView()
+                    .frame(width: 120, height: 34)
+            case .hovered:
+                CollapsedNotchView()
+                    .frame(width: 220, height: 42)
+            case .expanded:
+                expandedContent
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: stateManager.presentation)
+    }
+
+    private var expandedContent: some View {
         VStack(spacing: 0) {
             // Top Navigation Bar
             HStack(spacing: 8) {
@@ -62,7 +78,7 @@ struct NotchContentView: View {
             Spacer(minLength: 0)
         }
         .frame(width: 670, height: 168)
-    }
+        }
     
     // MARK: - Tab Selector Pills
     private var tabSelector: some View {

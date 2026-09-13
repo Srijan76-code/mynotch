@@ -85,7 +85,7 @@ struct GeneralSettingsView: View {
                     }
                 }
                 
-                Text("Spotify and Apple Music support metadata, timeline, and controls. Browser apps are detected, but macOS does not expose universal tab media metadata or controls.")
+                Text("Spotify and Apple Music support metadata, timeline, and controls. Browser and other third-party apps are detected when possible, but macOS has no public universal API for their tab metadata, timelines, or controls.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

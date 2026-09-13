@@ -27,6 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var notch: DynamicNotch<NotchContentView>?
     
     private var mouseMonitor: Any?
+    private var clickMonitor: Any?
     private var hoverTimer: Timer?
     private var isExpanded = false
     private var collapseWorkItem: DispatchWorkItem?
@@ -42,6 +43,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = CalendarManager.shared
         
         setupNotchWindow()
+        notch?.show()
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -72,8 +74,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleMouseMoved(event)
             return event
         }
+
+        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.handleMouseClick()
+        }
+        NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            self?.handleMouseClick()
+            return event
+        }
     }
-    
+
     private func handleMouseMoved(_ event: NSEvent?) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         
@@ -93,12 +103,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let isInNotchArea = notchRect.contains(mouseLocation)
         
+        let stateManager = NotchStateManager.shared
         if isInNotchArea && !isExpanded {
             // Cancel any pending collapse
             collapseWorkItem?.cancel()
             collapseWorkItem = nil
             
             isExpanded = true
+            stateManager.presentation = .hovered
             notch?.show()
         } else if !isInNotchArea && isExpanded {
             // Check if mouse is still inside the expanded window
@@ -124,22 +136,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                             )
                             if !currentExpandedRect.contains(currentMouse) && !currentNotchRect.contains(currentMouse) {
                                 self.isExpanded = false
-                                self.notch?.hide()
+                                stateManager.presentation = .natural
                             }
                         } else {
                             self.isExpanded = false
-                            self.notch?.hide()
+                            stateManager.presentation = .natural
                         }
                     }
+
                     collapseWorkItem = workItem
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
                 }
             }
         }
     }
+
+    private func handleMouseClick() {
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        let location = NSEvent.mouseLocation
+        let notchRect = NSRect(
+            x: screen.frame.midX - 200,
+            y: screen.frame.maxY - 40,
+            width: 400,
+            height: 40
+        )
+        guard notchRect.contains(location) ||
+              (notch?.windowController?.window.frame.contains(location) == true) else {
+            return
+        }
+
+        isExpanded = true
+        NotchStateManager.shared.presentation = .expanded
+        notch?.show()
+    }
     
     deinit {
         if let monitor = mouseMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = clickMonitor {
             NSEvent.removeMonitor(monitor)
         }
         hoverTimer?.invalidate()

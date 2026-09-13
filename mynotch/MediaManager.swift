@@ -99,6 +99,13 @@ final class MediaManager: ObservableObject {
     
     private func fetchNowPlaying() {
         let sources = runningPlayerSources
+        if sources == [.webMedia] {
+            track = .empty
+            nowPlayingAppName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Browser"
+            selectedSource = .webMedia
+            mediaStatus = "Browser detected; macOS does not provide universal tab metadata or controls"
+            return
+        }
         requestAutomationAccessIfNeeded()
         let snapshots = sources.compactMap(fetchPlayerSnapshot)
         guard let snapshot = snapshots.first(where: \.isPlaying)
@@ -123,6 +130,7 @@ final class MediaManager: ObservableObject {
 
     private func requestAutomationAccessIfNeeded() {
         guard let source = runningPlayerSources.first,
+              source == .spotify || source == .appleMusic,
               requestedAutomationSources.insert(source).inserted else {
             return
         }
@@ -172,7 +180,7 @@ final class MediaManager: ObservableObject {
             return [.appleMusic] + sources.filter { $0 != .appleMusic }
         }
         if isFrontmostBrowser {
-            return [.webMedia] + sources.filter { $0 != .webMedia }
+            return [.webMedia]
         }
         return sources
     }
@@ -203,7 +211,7 @@ final class MediaManager: ObservableObject {
         case .appleMusic:
             application = "Music"
         case .webMedia:
-            return fetchBrowserSnapshot()
+            return nil
         default:
             return nil
         }
@@ -250,22 +258,6 @@ final class MediaManager: ObservableObject {
             duration: source == .spotify ? duration / 1000 : duration,
             currentTime: currentTime,
             isPlaying: isPlaying
-        )
-    }
-
-    private func fetchBrowserSnapshot() -> PlayerSnapshot? {
-        guard let application = NSWorkspace.shared.frontmostApplication,
-              let name = application.localizedName else {
-            return nil
-        }
-        return PlayerSnapshot(
-            source: .webMedia,
-            title: name,
-            artist: "Browser media",
-            album: "",
-            duration: 1,
-            currentTime: 0,
-            isPlaying: false
         )
     }
 
@@ -357,12 +349,12 @@ final class MediaManager: ObservableObject {
     }
 
     private var activeScriptableSource: MediaSource? {
-    switch track.source {
-    case .spotify, .appleMusic:
-        return runningPlayerSources.contains(track.source) ? track.source : nil
-    default:
-        return runningPlayerSources.first
-    }
+        switch track.source {
+        case .spotify, .appleMusic:
+            return runningPlayerSources.contains(track.source) ? track.source : nil
+        default:
+            return nil
+        }
     }
 
     private func runPlayerCommand(_ source: String) {

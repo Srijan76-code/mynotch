@@ -20,11 +20,18 @@ enum NotchTab: String, CaseIterable, Identifiable {
     }
 }
 
+enum NotchPresentation {
+    case natural
+    case hovered
+    case expanded
+}
+
 final class NotchStateManager: ObservableObject {
     static let shared = NotchStateManager()
     
     @Published var selectedTab: NotchTab = .nook
     @Published var isSettingsPresented: Bool = false
+    @Published var presentation: NotchPresentation = .natural
     
     // For legacy compatibility, although DynamicNotch handles hover now
     @Published var isHovered: Bool = false
