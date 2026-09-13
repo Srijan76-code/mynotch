@@ -6,6 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		18B115C003054511E00984621 /* DynamicNotchKit in Frameworks */ = {isa = PBXBuildFile; productRef = 18B115B003054511E00984621 /* DynamicNotchKit */; };
+		18B115C013054511E00984621 /* Pow in Frameworks */ = {isa = PBXBuildFile; productRef = 18B115B013054511E00984621 /* Pow */; };
+		18B115C023054511E00984621 /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = 18B115B023054511E00984621 /* Defaults */; };
+		18B115C033054511E00984621 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 18B115B033054511E00984621 /* KeyboardShortcuts */; };
+		18B115C043054511E00984621 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = 18B115B043054511E00984621 /* LaunchAtLogin */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		18B1156D3054511E00984621 /* mynotch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mynotch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +31,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18B115C003054511E00984621 /* DynamicNotchKit in Frameworks */,
+				18B115C013054511E00984621 /* Pow in Frameworks */,
+				18B115C023054511E00984621 /* Defaults in Frameworks */,
+				18B115C033054511E00984621 /* KeyboardShortcuts in Frameworks */,
+				18B115C043054511E00984621 /* LaunchAtLogin in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +78,11 @@
 			);
 			name = mynotch;
 			packageProductDependencies = (
+				18B115B003054511E00984621 /* DynamicNotchKit */,
+				18B115B013054511E00984621 /* Pow */,
+				18B115B023054511E00984621 /* Defaults */,
+				18B115B033054511E00984621 /* KeyboardShortcuts */,
+				18B115B043054511E00984621 /* LaunchAtLogin */,
 			);
 			productName = mynotch;
 			productReference = 18B1156D3054511E00984621 /* mynotch.app */;
@@ -98,6 +116,13 @@
 			productRefGroup = 18B1156E3054511E00984621 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				18B115A003054511E00984621 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */,
+				18B115A013054511E00984621 /* XCRemoteSwiftPackageReference "Pow" */,
+				18B115A023054511E00984621 /* XCRemoteSwiftPackageReference "Defaults" */,
+				18B115A033054511E00984621 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				18B115A043054511E00984621 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
+			);
 			targets = (
 				18B1156C3054511E00984621 /* mynotch */,
 			);
@@ -123,6 +148,77 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		18B115A003054511E00984621 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MrKai77/DynamicNotchKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.1;
+			};
+		};
+		18B115A013054511E00984621 /* XCRemoteSwiftPackageReference "Pow" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/EmergeTools/Pow";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		18B115A023054511E00984621 /* XCRemoteSwiftPackageReference "Defaults" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/Defaults";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
+		18B115A033054511E00984621 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		18B115A043054511E00984621 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin-Modern";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		18B115B003054511E00984621 /* DynamicNotchKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18B115A003054511E00984621 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */;
+			productName = DynamicNotchKit;
+		};
+		18B115B013054511E00984621 /* Pow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18B115A013054511E00984621 /* XCRemoteSwiftPackageReference "Pow" */;
+			productName = Pow;
+		};
+		18B115B023054511E00984621 /* Defaults */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18B115A023054511E00984621 /* XCRemoteSwiftPackageReference "Defaults" */;
+			productName = Defaults;
+		};
+		18B115B033054511E00984621 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18B115A033054511E00984621 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+		18B115B043054511E00984621 /* LaunchAtLogin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18B115A043054511E00984621 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */;
+			productName = LaunchAtLogin;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		18B115763054511F00984621 /* Debug */ = {
@@ -254,7 +350,10 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WCSW9W94KS;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
+				INFOPLIST_KEY_NSCameraUsageDescription = "mynotch uses your camera for the notch mirror preview.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "mynotch uses your calendar to display upcoming events.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "mynotch needs to communicate with Spotify and Music to control media playback.";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -287,6 +386,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WCSW9W94KS;
 				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "mynotch uses your camera for the notch mirror preview.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "mynotch uses your calendar to display upcoming events.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "mynotch needs to communicate with Spotify and Music to control media playback.";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
