@@ -70,6 +70,14 @@ struct GeneralSettingsView: View {
                     Text(mediaManager.nowPlayingAppName.isEmpty ? "None detected" : mediaManager.nowPlayingAppName)
                         .foregroundColor(.secondary)
                 }
+
+                HStack {
+                    Text("Media Status:")
+                    Spacer()
+                    Text(mediaManager.mediaStatus)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
                 
                 Text("Media is detected automatically from any app (Spotify, Apple Music, YouTube, etc.)")
                     .font(.caption)

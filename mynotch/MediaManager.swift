@@ -73,6 +73,7 @@ final class MediaManager: ObservableObject {
     @Published var selectedSource: MediaSource = .auto
     @Published var availableSources: [MediaSource] = MediaSource.allCases
     @Published var nowPlayingAppName: String = ""
+    @Published private(set) var mediaStatus = "Waiting for a supported player"
     
     private var timer: Timer?
     
@@ -93,13 +94,22 @@ final class MediaManager: ObservableObject {
     // MARK: - Fetch Now Playing
     
     private func fetchNowPlaying() {
-        let snapshots = runningPlayerSources.compactMap(fetchPlayerSnapshot)
+        let sources = runningPlayerSources
+        let snapshots = sources.compactMap(fetchPlayerSnapshot)
         guard let snapshot = snapshots.first(where: \.isPlaying)
                 ?? snapshots.first(where: { $0.source == track.source })
                 ?? snapshots.first else {
-            track = .empty
-            nowPlayingAppName = ""
-            selectedSource = .auto
+            if sources.isEmpty {
+                track = .empty
+                nowPlayingAppName = ""
+                selectedSource = .auto
+                mediaStatus = "No supported player is running"
+            } else if !sources.contains(track.source) {
+                track = .empty
+                nowPlayingAppName = ""
+                selectedSource = .auto
+                mediaStatus = "Player automation permission is required"
+            }
             return
         }
         apply(snapshot)
@@ -143,13 +153,22 @@ final class MediaManager: ObservableObject {
         """
         var error: NSDictionary?
         guard let result = NSAppleScript(source: script)?
-            .executeAndReturnError(&error).stringValue else { return nil }
+            .executeAndReturnError(&error).stringValue else {
+            if let error {
+                mediaStatus = "\(source.rawValue) automation failed"
+                print("[MediaManager] \(source.rawValue) read failed: \(error)")
+            }
+            return nil
+        }
 
         let fields = result.components(separatedBy: "\t")
         guard fields.count >= 6,
               let duration = Double(fields[3]),
               let currentTime = Double(fields[4]),
-              !fields[0].isEmpty else { return nil }
+              !fields[0].isEmpty else {
+            mediaStatus = "\(source.rawValue) has no active track"
+            return nil
+        }
 
         let isPlaying = fields[5].lowercased() == "playing"
         return PlayerSnapshot(
@@ -177,6 +196,9 @@ final class MediaManager: ObservableObject {
         )
         nowPlayingAppName = snapshot.source == .spotify ? "Spotify" : "Apple Music"
         selectedSource = snapshot.source
+        mediaStatus = snapshot.isPlaying
+            ? "Playing in \(nowPlayingAppName)"
+            : "Paused in \(nowPlayingAppName)"
     }
     
     // MARK: - Playback Controls
